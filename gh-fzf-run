@@ -50,9 +50,9 @@ if ! type -p fzf >/dev/null; then
   exit 1
 fi
 
-JSON_FIELDS="--json status,conclusion,displayTitle,workflowName,headBranch,event,databaseId"
-TITLES="[\"STATUS\", \"CONCLUSION\", \"WORKFLOW\", \"TITLE\", \"BRANCH\", \"EVENT\", \"ID\"]"
-FIELDS="[.status, .conclusion, .workflowName, .displayTitle, .headBranch, .event, .databaseId]"
+JSON_FIELDS="--json status,conclusion,displayTitle,workflowName,headBranch,event,createdAt,databaseId"
+TITLES="[\"STATUS\", \"CONCLUSION\", \"WORKFLOW\", \"TITLE\", \"BRANCH\", \"EVENT\", \"TIMESTAMP\", \"ID\"]"
+FIELDS="[.status, .conclusion, .workflowName, .displayTitle, .headBranch, .event, .createdAt, .databaseId]"
 COMPLETED_JQUERY="(${TITLES}), (.[] | [select(.status | test(\"completed\"))] | (.[] | ${FIELDS})) | @tsv"
 NOT_COMPLETED_JQUERY="(${TITLES}), (map (select(.conclusion ==\"\").conclusion=\"inprogress\") | .[] | [select(.status | test(\"completed\") | not)] | (.[] | ${FIELDS})) | @tsv"
 STATUS_ANY_JQUERY="(${TITLES}), (map (select(.conclusion ==\"\").conclusion=\"inprogress\") | .[] | (${FIELDS})) | @tsv"
