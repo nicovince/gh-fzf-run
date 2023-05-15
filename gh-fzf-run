@@ -1,35 +1,57 @@
 #!/usr/bin/env bash
 set -e
 
-echo "Hello gh-fzf-run!"
+function help()
+{
+    cat <<EOF
+Select with fzf a workflow from GitHub Actions to view, watch, cancel.
+Usage:
+  gh fzf-run
 
-# Snippets to help get started:
+Flags:
+  -R, --repo OWNER/REPO\tSelect another repository.
+  -h, --help\tShow help for command
+EOF
+}
 
-# Determine if an executable is in the PATH
-# if ! type -p ruby >/dev/null; then
-#   echo "Ruby not found on the system" >&2
-#   exit 1
-# fi
+REPO=""
+while [ $# -gt 0 ]; do
+    key="$1"
+    case ${key} in
+        -h|--help)
+            help
+            exit 0
+            ;;
+        -R|--repository)
+            REPO="$2"
+            shift
+            ;;
+        *)
+            PARAMS="${PARAMS} ${1}"
+            ;;
+    esac
+    shift
+done
+eval set -- "${PARAMS}"
+if [ -z "$1" ]; then
+    ACTION="view"
+else
+    ACTION="$1"
+fi
 
-# Pass arguments through to another command
-# gh issue list "$@" -R cli/cli
+REPO_OPT=""
+if [ -n "${REPO}" ]; then
+    REPO_OPT="-R ${REPO}"
+fi
 
-# Using the gh api command to retrieve and format information
-# QUERY='
-#   query($endCursor: String) {
-#     viewer {
-#       repositories(first: 100, after: $endCursor) {
-#         nodes {
-#           nameWithOwner
-#           stargazerCount
-#         }
-#       }
-#     }
-#   }
-# '
-# TEMPLATE='
-#   {{- range $repo := .data.viewer.repositories.nodes -}}
-#     {{- printf "name: %s - stargazers: %v\n" $repo.nameWithOwner $repo.stargazerCount -}}
-#   {{- end -}}
-# '
-# exec gh api graphql -f query="${QUERY}" --paginate --template="${TEMPLATE}"
+# Check dependencies ar available
+if ! type -p fzf >/dev/null; then
+  echo "fzf not found on the system" >&2
+  exit 1
+fi
+
+wf_sel=$(gh run ${REPO_OPT} list | fzf -m | jq -r -R -s 'split("\n") | [ .[] | select(length > 0)]')
+wf_sel_id="$(echo "${wf_sel}" | jq -r ".[] | split(\"\t\") | [.[] | select(length > 0)] | .[-3]")"
+for wf_id in ${wf_sel_id}; do
+    gh run ${REPO_OPT} ${ACTION} ${wf_id}
+done
