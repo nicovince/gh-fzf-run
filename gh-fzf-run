@@ -50,10 +50,12 @@ if ! type -p fzf >/dev/null; then
   exit 1
 fi
 
-JSON_FIELDS="--json status,displayTitle,workflowName,headBranch,event,databaseId"
-COMPLETED_JQUERY="([\"STATUS\", \"WORKFLOW\", \"TITLE\", \"BRANCH\", \"EVENT\", \"ID\"]), (.[] | [select(.status | test(\"completed\"))] | (.[] | [.status, .workflowName, .displayTitle, .headBranch, .event, .databaseId])) | @tsv"
-NOT_COMPLETED_JQUERY="([\"STATUS\", \"WORKFLOW\", \"TITLE\", \"BRANCH\", \"EVENT\", \"ID\"]), (.[] | [select(.status | test(\"completed\") | not)] | (.[] | [.status, .workflowName, .displayTitle, .headBranch, .event, .databaseId])) | @tsv"
-STATUS_ANY_JQUERY="([\"STATUS\", \"WORKFLOW\", \"TITLE\", \"BRANCH\", \"EVENT\", \"ID\"]), (.[] | ([.status, .workflowName, .displayTitle, .headBranch, .event, .databaseId])) | @tsv"
+JSON_FIELDS="--json status,conclusion,displayTitle,workflowName,headBranch,event,databaseId"
+TITLES="[\"STATUS\", \"CONCLUSION\", \"WORKFLOW\", \"TITLE\", \"BRANCH\", \"EVENT\", \"ID\"]"
+FIELDS="[.status, .conclusion, .workflowName, .displayTitle, .headBranch, .event, .databaseId]"
+COMPLETED_JQUERY="(${TITLES}), (.[] | [select(.status | test(\"completed\"))] | (.[] | ${FIELDS})) | @tsv"
+NOT_COMPLETED_JQUERY="(${TITLES}), (map (select(.conclusion ==\"\").conclusion=\"inprogress\") | .[] | [select(.status | test(\"completed\") | not)] | (.[] | ${FIELDS})) | @tsv"
+STATUS_ANY_JQUERY="(${TITLES}), (map (select(.conclusion ==\"\").conclusion=\"inprogress\") | .[] | (${FIELDS})) | @tsv"
 
 case ${ACTION} in
     cancel|watch)
