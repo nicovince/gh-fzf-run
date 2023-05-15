@@ -44,14 +44,34 @@ if [ -n "${REPO}" ]; then
     REPO_OPT="-R ${REPO}"
 fi
 
-# Check dependencies ar available
+# Check dependencies are available
 if ! type -p fzf >/dev/null; then
   echo "fzf not found on the system" >&2
   exit 1
 fi
 
-wf_sel=$(gh run ${REPO_OPT} list | fzf -m | jq -r -R -s 'split("\n") | [ .[] | select(length > 0)]')
-wf_sel_id="$(echo "${wf_sel}" | jq -r ".[] | split(\"\t\") | [.[] | select(length > 0)] | .[-3]")"
-for wf_id in ${wf_sel_id}; do
+JSON_FIELDS="--json status,displayTitle,workflowName,headBranch,event,databaseId"
+COMPLETED_JQUERY="([\"STATUS\", \"WORKFLOW\", \"TITLE\", \"BRANCH\", \"EVENT\", \"ID\"]), (.[] | [select(.status | test(\"completed\"))] | (.[] | [.status, .workflowName, .displayTitle, .headBranch, .event, .databaseId])) | @tsv"
+NOT_COMPLETED_JQUERY="([\"STATUS\", \"WORKFLOW\", \"TITLE\", \"BRANCH\", \"EVENT\", \"ID\"]), (.[] | [select(.status | test(\"completed\") | not)] | (.[] | [.status, .workflowName, .displayTitle, .headBranch, .event, .databaseId])) | @tsv"
+STATUS_ANY_JQUERY="([\"STATUS\", \"WORKFLOW\", \"TITLE\", \"BRANCH\", \"EVENT\", \"ID\"]), (.[] | ([.status, .workflowName, .displayTitle, .headBranch, .event, .databaseId])) | @tsv"
+
+case ${ACTION} in
+    cancel|watch)
+        QUERY="${NOT_COMPLETED_JQUERY}"
+        ;;
+    delete|download|rerun)
+        QUERY="${COMPLETED_JQUERY}"
+        ;;
+    view)
+        QUERY="${STATUS_ANY_JQUERY}"
+        ;;
+    *)
+        echo "Unknown action ${ACTION}"
+        exit 1
+esac
+
+wf_sel=$(gh run ${REPO_OPT} list ${JSON_FIELDS} --jq "${QUERY}" | column -ts $'\t' | fzf -0 --header-lines=1 --multi | jq -r -R -s 'split("\n") | [ .[] | select(length > 0)]')
+wf_sel_ids="$(echo "${wf_sel}" | jq -r '.[] | split(" ") | [.[] | select(length > 0)] | .[-1]')"
+for wf_id in ${wf_sel_ids}; do
     gh run ${REPO_OPT} ${ACTION} ${wf_id}
 done
