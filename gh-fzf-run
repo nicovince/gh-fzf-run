@@ -43,6 +43,7 @@ REPO_OPT=""
 if [ -n "${REPO}" ]; then
     REPO_OPT="-R ${REPO}"
 fi
+export REPO_OPT
 
 # Check dependencies are available
 if ! type -p fzf >/dev/null; then
@@ -56,6 +57,7 @@ FIELDS="[.status, .conclusion, .workflowName, .displayTitle, .headBranch, .event
 COMPLETED_JQUERY="(${TITLES}), (.[] | [select(.status | test(\"completed\"))] | (.[] | ${FIELDS})) | @tsv"
 NOT_COMPLETED_JQUERY="(${TITLES}), (map (select(.conclusion ==\"\").conclusion=\"inprogress\") | .[] | [select(.status | test(\"completed\") | not)] | (.[] | ${FIELDS})) | @tsv"
 STATUS_ANY_JQUERY="(${TITLES}), (map (select(.conclusion ==\"\").conclusion=\"inprogress\") | .[] | (${FIELDS})) | @tsv"
+export JSON_FIELDS
 
 case ${ACTION} in
     cancel|watch)
@@ -71,8 +73,9 @@ case ${ACTION} in
         echo "Unknown action ${ACTION}"
         exit 1
 esac
+export QUERY
 
-wf_sel=$(gh run ${REPO_OPT} list ${JSON_FIELDS} --jq "${QUERY}" | column -ts $'\t' | fzf -0 --header-lines=1 --multi | jq -r -R -s 'split("\n") | [ .[] | select(length > 0)]')
+wf_sel=$(gh run ${REPO_OPT} list ${JSON_FIELDS} --jq "${QUERY}" | column -ts $'\t' | fzf -0 --bind 'ctrl-r:reload(gh run ${REPO_OPT} list ${JSON_FIELDS} --jq "${QUERY}" | column -ts $'"'"'\t'"'"')' --header-lines=1 --multi | jq -r -R -s 'split("\n") | [ .[] | select(length > 0)]')
 wf_sel_ids="$(echo "${wf_sel}" | jq -r '.[] | split(" ") | [.[] | select(length > 0)] | .[-1]')"
 for wf_id in ${wf_sel_ids}; do
     gh run ${REPO_OPT} ${ACTION} ${wf_id}
