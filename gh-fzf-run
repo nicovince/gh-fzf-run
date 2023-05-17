@@ -14,6 +14,7 @@ Actions:
 Flags:
   -R, --repo OWNER/REPO\tSelect another repository.
   -b, --branch\tFilter runs by branch
+  -w, --workflow\tFilter runs by workflow (Use yaml filename if the name contains space)
   -h, --help\tShow help for command
 EOF
 }
@@ -30,6 +31,11 @@ while [ $# -gt 0 ]; do
 
         -b|--branch)
             LIST_OPT+=(--branch "$2")
+            shift
+            ;;
+        -w|--workflow)
+            # Cannot use workflow name with spaces, must use yml filename.
+            LIST_OPT+=(--workflow "$2")
             shift
             ;;
         -R|--repository)
