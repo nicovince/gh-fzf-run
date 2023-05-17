@@ -6,21 +6,31 @@ function help()
     cat <<EOF
 Select with fzf a workflow from GitHub Actions to view, watch, cancel.
 Usage:
-  gh fzf-run
+  gh fzf-run [action]
+
+Actions:
+  Any actions supported by 'gh run' which takes a workflow id as parameter
 
 Flags:
   -R, --repo OWNER/REPO\tSelect another repository.
+  -b, --branch\tFilter runs by branch
   -h, --help\tShow help for command
 EOF
 }
 
 REPO=""
+LIST_OPT=""
 while [ $# -gt 0 ]; do
     key="$1"
     case ${key} in
         -h|--help)
             help
             exit 0
+            ;;
+
+        -b|--branch)
+            LIST_OPT="${LIST_OPT} --branch $2"
+            shift
             ;;
         -R|--repository)
             REPO="$2"
@@ -44,6 +54,7 @@ if [ -n "${REPO}" ]; then
     REPO_OPT="-R ${REPO}"
 fi
 export REPO_OPT
+RUN_OPT="${REPO_OPT}"
 
 # Check dependencies are available
 if ! type -p fzf >/dev/null; then
@@ -74,8 +85,9 @@ case ${ACTION} in
         exit 1
 esac
 export QUERY
-
-wf_sel=$(gh run ${REPO_OPT} list ${JSON_FIELDS} --jq "${QUERY}" | column -ts $'\t' | fzf -0 --bind 'ctrl-r:reload(gh run ${REPO_OPT} list ${JSON_FIELDS} --jq "${QUERY}" | column -ts $'"'"'\t'"'"')' --header-lines=1 --multi | jq -r -R -s 'split("\n") | [ .[] | select(length > 0)]')
+LIST_OPT="${LIST_OPT} ${JSON_FIELDS}"
+export LIST_OPT
+wf_sel=$(gh run ${REPO_OPT} list ${LIST_OPT} --jq "${QUERY}" | column -ts $'\t' | fzf -0 --bind 'ctrl-r:reload(gh run ${REPO_OPT} list ${LIST_OPT} --jq "${QUERY}" | column -ts $'"'"'\t'"'"')' --header-lines=1 --multi | jq -r -R -s 'split("\n") | [ .[] | select(length > 0)]')
 wf_sel_ids="$(echo "${wf_sel}" | jq -r '.[] | split(" ") | [.[] | select(length > 0)] | .[-1]')"
 for wf_id in ${wf_sel_ids}; do
     gh run ${REPO_OPT} ${ACTION} ${wf_id}
