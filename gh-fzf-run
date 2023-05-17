@@ -19,7 +19,7 @@ EOF
 }
 
 REPO=""
-LIST_OPT=""
+LIST_OPT=()
 while [ $# -gt 0 ]; do
     key="$1"
     case ${key} in
@@ -29,7 +29,7 @@ while [ $# -gt 0 ]; do
             ;;
 
         -b|--branch)
-            LIST_OPT="${LIST_OPT} --branch $2"
+            LIST_OPT+=(--branch "$2")
             shift
             ;;
         -R|--repository)
@@ -62,7 +62,7 @@ if ! type -p fzf >/dev/null; then
   exit 1
 fi
 
-JSON_FIELDS="--json status,conclusion,displayTitle,workflowName,headBranch,event,createdAt,databaseId"
+JSON_FIELDS="status,conclusion,displayTitle,workflowName,headBranch,event,createdAt,databaseId"
 TITLES="[\"STATUS\", \"CONCLUSION\", \"WORKFLOW\", \"TITLE\", \"BRANCH\", \"EVENT\", \"TIMESTAMP\", \"ID\"]"
 FIELDS="[.status, .conclusion, .workflowName, .displayTitle, .headBranch, .event, .createdAt, .databaseId]"
 COMPLETED_JQUERY="(${TITLES}), (.[] | [select(.status | test(\"completed\"))] | (.[] | ${FIELDS})) | @tsv"
@@ -85,9 +85,11 @@ case ${ACTION} in
         exit 1
 esac
 export QUERY
-LIST_OPT="${LIST_OPT} ${JSON_FIELDS}"
+LIST_OPT+=(--json ${JSON_FIELDS})
 export LIST_OPT
-wf_sel=$(gh run ${REPO_OPT} list ${LIST_OPT} --jq "${QUERY}" | column -ts $'\t' | fzf -0 --bind 'ctrl-r:reload(gh run ${REPO_OPT} list ${LIST_OPT} --jq "${QUERY}" | column -ts $'"'"'\t'"'"')' --header-lines=1 --multi | jq -r -R -s 'split("\n") | [ .[] | select(length > 0)]')
+list_opt="${LIST_OPT[@]}"
+export list_opt
+wf_sel=$(gh run ${REPO_OPT} list "${LIST_OPT[@]}" --jq "${QUERY}" | column -ts $'\t' | fzf -0 --bind 'ctrl-r:reload(gh run ${REPO_OPT} list ${list_opt} --jq "${QUERY}" | column -ts $'"'"'\t'"'"')' --header-lines=1 --multi | jq -r -R -s 'split("\n") | [ .[] | select(length > 0)]')
 wf_sel_ids="$(echo "${wf_sel}" | jq -r '.[] | split(" ") | [.[] | select(length > 0)] | .[-1]')"
 for wf_id in ${wf_sel_ids}; do
     gh run ${REPO_OPT} ${ACTION} ${wf_id}
