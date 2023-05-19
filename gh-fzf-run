@@ -30,12 +30,11 @@ while [ $# -gt 0 ]; do
             ;;
 
         -b|--branch)
-            LIST_OPT+=(--branch "$2")
+            LIST_OPT+=(--branch ${2@Q})
             shift
             ;;
         -w|--workflow)
-            # Cannot use workflow name with spaces, must use yml filename.
-            LIST_OPT+=(--workflow "$2")
+            LIST_OPT+=(--workflow ${2@Q})
             shift
             ;;
         -R|--repository)
@@ -93,6 +92,7 @@ QUERY="(${TITLES}), (map (select(.conclusion ==\"\").conclusion=\"inprogress\") 
 LIST_OPT+=(--json ${JSON_FIELDS})
 export LIST_OPT
 export FZF_DEFAULT_COMMAND="gh run ${REPO_OPT} list ${LIST_OPT[@]} --jq '${QUERY}' | column -ts $'\t'"
+echo "${LIST_OPT[@]}"
 wf_sel=$(fzf --bind "ctrl-r:reload#${FZF_DEFAULT_COMMAND}#" -0 --header-lines=1 --multi | jq -r -R -s 'split("\n") | [ .[] | select(length > 0)]')
 wf_sel_ids="$(echo "${wf_sel}" | jq -r '.[] | split(" ") | [.[] | select(length > 0)] | .[-1]')"
 for wf_id in ${wf_sel_ids}; do
