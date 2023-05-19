@@ -11,4 +11,4 @@ This extension depends on [fzf](https://github.com/junegunn/fzf#readme)
 ```
 gh fzf-run watch
 ```
-After you have selected the workflow(s) you are interested in, the requested action is passed to `gh run` with the id of the selected workflow.
+After you have selected the workflow(s) you are interested in (use tab and shift+tab to select multiple entries), the requested action is passed to `gh run` with the id of the selected workflow.
