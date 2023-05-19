@@ -70,32 +70,33 @@ fi
 
 JSON_FIELDS="status,conclusion,displayTitle,workflowName,headBranch,event,createdAt,databaseId"
 TITLES="[\"STATUS\", \"CONCLUSION\", \"WORKFLOW\", \"TITLE\", \"BRANCH\", \"EVENT\", \"TIMESTAMP\", \"ID\"]"
+TITLES='["STATUS", "CONCLUSION", "WORKFLOW", "TITLE", "BRANCH", "EVENT", "TIMESTAMP", "ID"]'
 FIELDS="[.status, .conclusion, .workflowName, .displayTitle, .headBranch, .event, .createdAt, .databaseId]"
-COMPLETED_JQUERY="(${TITLES}), (.[] | [select(.status | test(\"completed\"))] | (.[] | ${FIELDS})) | @tsv"
-NOT_COMPLETED_JQUERY="(${TITLES}), (map (select(.conclusion ==\"\").conclusion=\"inprogress\") | .[] | [select(.status | test(\"completed\") | not)] | (.[] | ${FIELDS})) | @tsv"
-STATUS_ANY_JQUERY="(${TITLES}), (map (select(.conclusion ==\"\").conclusion=\"inprogress\") | .[] | (${FIELDS})) | @tsv"
 export JSON_FIELDS
 
 case ${ACTION} in
     cancel|watch)
-        QUERY="${NOT_COMPLETED_JQUERY}"
+        JQ_FILTER=".[] | [select(.status | test(\"completed\") | not)] |"
         ;;
     delete|download|rerun)
-        QUERY="${COMPLETED_JQUERY}"
+        JQ_FILTER=".[] | [select(.status | test(\"completed\"))] |"
         ;;
     view)
-        QUERY="${STATUS_ANY_JQUERY}"
+        JQ_FILTER=""
         ;;
     *)
         echo "Unknown action ${ACTION}"
         exit 1
 esac
-export QUERY
+
+QUERY="(${TITLES}), (map (select(.conclusion ==\"\").conclusion=\"inprogress\") | ${JQ_FILTER} (.[] | ${FIELDS})) | @tsv"
 LIST_OPT+=(--json ${JSON_FIELDS})
 export LIST_OPT
 list_opt="${LIST_OPT[@]}"
 export list_opt
-wf_sel=$(gh run ${REPO_OPT} list "${LIST_OPT[@]}" --jq "${QUERY}" | column -ts $'\t' | fzf -0 --bind 'ctrl-r:reload(gh run ${REPO_OPT} list ${list_opt} --jq "${QUERY}" | column -ts $'"'"'\t'"'"')' --header-lines=1 --multi | jq -r -R -s 'split("\n") | [ .[] | select(length > 0)]')
+export QUERY
+export FZF_DEFAULT_COMMAND="gh run ${REPO_OPT} list ${LIST_OPT[@]} --jq '${QUERY}' | column -ts $'\t'"
+wf_sel=$(fzf --bind 'ctrl-r:reload#gh run ${REPO_OPT} list ${list_opt} --jq "${QUERY}" | column -ts $'"'"'\t'"'"'#' -0 --header-lines=1 --multi | jq -r -R -s 'split("\n") | [ .[] | select(length > 0)]')
 wf_sel_ids="$(echo "${wf_sel}" | jq -r '.[] | split(" ") | [.[] | select(length > 0)] | .[-1]')"
 for wf_id in ${wf_sel_ids}; do
     gh run ${REPO_OPT} ${ACTION} ${wf_id}
