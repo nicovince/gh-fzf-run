@@ -14,7 +14,7 @@ Actions:
 Flags:
   -R, --repo OWNER/REPO\tSelect another repository.
   -b, --branch\tFilter runs by branch
-  -w, --workflow\tFilter runs by workflow (Use yaml filename if the name contains space)
+  -w, --workflow\tFilter runs by workflow
   -h, --help\tShow help for command
 EOF
 }
@@ -40,6 +40,10 @@ while [ $# -gt 0 ]; do
         -R|--repository)
             REPO="$2"
             shift
+            ;;
+        --)
+            ACTION_ARGS="${@:2:$#}"
+            break
             ;;
         *)
             PARAMS="${PARAMS} ${1}"
@@ -68,7 +72,6 @@ if ! type -p fzf >/dev/null; then
 fi
 
 JSON_FIELDS="status,conclusion,displayTitle,workflowName,headBranch,event,createdAt,databaseId"
-TITLES="[\"STATUS\", \"CONCLUSION\", \"WORKFLOW\", \"TITLE\", \"BRANCH\", \"EVENT\", \"TIMESTAMP\", \"ID\"]"
 TITLES='["STATUS", "CONCLUSION", "WORKFLOW", "TITLE", "BRANCH", "EVENT", "TIMESTAMP", "ID"]'
 FIELDS="[.status, .conclusion, .workflowName, .displayTitle, .headBranch, .event, .createdAt, .databaseId]"
 export JSON_FIELDS
@@ -96,5 +99,5 @@ echo "${LIST_OPT[@]}"
 wf_sel=$(fzf --bind "ctrl-r:reload#${FZF_DEFAULT_COMMAND}#" -0 --header-lines=1 --multi | jq -r -R -s 'split("\n") | [ .[] | select(length > 0)]')
 wf_sel_ids="$(echo "${wf_sel}" | jq -r '.[] | split(" ") | [.[] | select(length > 0)] | .[-1]')"
 for wf_id in ${wf_sel_ids}; do
-    gh run ${REPO_OPT} ${ACTION} ${wf_id}
+    gh run ${REPO_OPT} ${ACTION} ${wf_id} ${ACTION_ARGS}
 done
