@@ -58,11 +58,12 @@ else
     ACTION="$1"
 fi
 
-REPO_OPT=""
-if [ -n "${REPO}" ]; then
-    REPO_OPT="-R ${REPO}"
+if [ -z "${REPO}" ]; then
+    repo_owner="$(git remote -v | head -1 | awk '{print $2}' | rev | cut -d '/' -f 2 | rev )"
+    repo_name="$(git remote -v | head -1 | awk '{print $2}' | rev | cut -d '/' -f 1 | rev | cut -d '.' -f 1)"
+    REPO="${repo_owner}/${repo_name}"
 fi
-export REPO_OPT
+REPO_OPT="-R ${REPO}"
 RUN_OPT="${REPO_OPT}"
 
 # Check dependencies are available
@@ -74,7 +75,6 @@ fi
 JSON_FIELDS="status,conclusion,displayTitle,workflowName,headBranch,event,createdAt,databaseId"
 TITLES='["STATUS", "CONCLUSION", "WORKFLOW", "TITLE", "BRANCH", "EVENT", "TIMESTAMP", "ID"]'
 FIELDS="[.status, .conclusion, .workflowName, .displayTitle, .headBranch, .event, .createdAt, .databaseId]"
-export JSON_FIELDS
 
 case ${ACTION} in
     cancel|watch)
@@ -93,10 +93,11 @@ esac
 
 QUERY="(${TITLES}), (map (select(.conclusion ==\"\").conclusion=\"inprogress\") | ${JQ_FILTER} (.[] | ${FIELDS})) | @tsv"
 LIST_OPT+=(--json ${JSON_FIELDS})
-export LIST_OPT
 export FZF_DEFAULT_COMMAND="gh run ${REPO_OPT} list ${LIST_OPT[@]} --jq '${QUERY}' | column -ts $'\t'"
 wf_sel=$(fzf --bind "ctrl-r:reload#${FZF_DEFAULT_COMMAND}#" -0 --header-lines=1 --multi | jq -r -R -s 'split("\n") | [ .[] | select(length > 0)]')
 wf_sel_ids="$(echo "${wf_sel}" | jq -r '.[] | split(" ") | [.[] | select(length > 0)] | .[-1]')"
 for wf_id in ${wf_sel_ids}; do
+    url="https://github.com/${REPO}/actions/runs/${wf_id}"
     gh run ${REPO_OPT} ${ACTION} ${wf_id} ${ACTION_ARGS}
+    echo "${url}"
 done
