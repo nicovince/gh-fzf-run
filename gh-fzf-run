@@ -95,7 +95,6 @@ QUERY="(${TITLES}), (map (select(.conclusion ==\"\").conclusion=\"inprogress\") 
 LIST_OPT+=(--json ${JSON_FIELDS})
 export LIST_OPT
 export FZF_DEFAULT_COMMAND="gh run ${REPO_OPT} list ${LIST_OPT[@]} --jq '${QUERY}' | column -ts $'\t'"
-echo "${LIST_OPT[@]}"
 wf_sel=$(fzf --bind "ctrl-r:reload#${FZF_DEFAULT_COMMAND}#" -0 --header-lines=1 --multi | jq -r -R -s 'split("\n") | [ .[] | select(length > 0)]')
 wf_sel_ids="$(echo "${wf_sel}" | jq -r '.[] | split(" ") | [.[] | select(length > 0)] | .[-1]')"
 for wf_id in ${wf_sel_ids}; do
