@@ -9,6 +9,10 @@ This extension depends on [fzf](https://github.com/junegunn/fzf#readme)
 
 ## Usage
 ```
-gh fzf-run watch
+gh fzf-run
 ```
-After you have selected the workflow(s) you are interested in (use tab and shift+tab to select multiple entries), the requested action is passed to `gh run` with the id of the selected workflow.
+Commands available:
+- `ctrl-a`: Abort workflow
+- `ctrl-w`: watch workflow
+- `ctrl-v`: View workflow
+- `ctrl-j`: Show jobs of workflow

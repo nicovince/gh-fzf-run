@@ -91,13 +91,21 @@ case ${ACTION} in
         exit 1
 esac
 
+function get_wf_id()
+{
+    echo "$@" | rev | awk '{print $1}' | rev
+}
+
+export REPO
+export -f get_wf_id
 QUERY="(${TITLES}), (map (select(.conclusion ==\"\").conclusion=\"inprogress\") | ${JQ_FILTER} (.[] | ${FIELDS})) | @tsv"
 LIST_OPT+=(--json ${JSON_FIELDS})
 export FZF_DEFAULT_COMMAND="gh run ${REPO_OPT} list ${LIST_OPT[@]} --jq '${QUERY}' | column -ts $'\t'"
-wf_sel=$(fzf --bind "ctrl-r:reload#${FZF_DEFAULT_COMMAND}#" -0 --header-lines=1 --multi | jq -r -R -s 'split("\n") | [ .[] | select(length > 0)]')
-wf_sel_ids="$(echo "${wf_sel}" | jq -r '.[] | split(" ") | [.[] | select(length > 0)] | .[-1]')"
-for wf_id in ${wf_sel_ids}; do
-    url="https://github.com/${REPO}/actions/runs/${wf_id}"
-    gh run ${REPO_OPT} ${ACTION} ${wf_id} ${ACTION_ARGS}
-    echo "${url}"
-done
+#wf_sel=$(fzf --bind "ctrl-r:reload#${FZF_DEFAULT_COMMAND}#" -0 --header-lines=1 --multi | jq -r -R -s 'split("\n") | [ .[] | select(length > 0)]')
+fzf --bind "ctrl-r:reload#${FZF_DEFAULT_COMMAND}#" \
+    --bind "ctrl-a:execute(get_wf_id {} | xargs gh run -R ${REPO} cancel)" \
+    --bind 'ctrl-w:execute(get_wf_id {} | xargs gh run -R ${REPO} watch)' \
+    --bind "ctrl-v:execute(get_wf_id {} | xargs gh run -R ${REPO} view | less -R)" \
+    --bind "ctrl-j:execute(echo 'job view {}' >> cmds.txt)" \
+    --header "ctrl-r: reload; ctrl-a: abort workflow" \
+    -0 --header-lines=1 --print-query
