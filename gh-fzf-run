@@ -19,10 +19,12 @@ Usage:
   gh fzf-run
 
 Flags:
-  -R, --repo OWNER/REPO\tSelect another repository.
-  -b, --branch\tFilter runs by branch
-  -w, --workflow\tFilter runs by workflow
-  -h, --help\tShow help for command
+  -R, --repo OWNER/REPO Select another repository.
+  -b, --branch          Filter runs by branch
+  -w, --workflow        Filter runs by workflow
+  --running             Show only running workflow
+  --completed           Show only completed workflows
+  -h, --help            Show help for command
 
 Actions:
   From within fzf, multiple bindings are available:
@@ -39,6 +41,7 @@ while [ $# -gt 0 ]; do
             help
             exit 0
             ;;
+
         -b|--branch)
             LIST_OPT+=(--branch ${2@Q})
             shift
@@ -51,6 +54,12 @@ while [ $# -gt 0 ]; do
             REPO="$2"
             shift
             ;;
+        --completed)
+            JQ_FILTER=".[] | [select(.status | test(\"completed\"))] |"
+            ;;
+        --running)
+            JQ_FILTER=".[] | [select(.status | test(\"completed\") | not)] |"
+            ;;
     esac
     shift
 done
@@ -60,8 +69,6 @@ if [ -z "${REPO}" ]; then
     repo_name="$(git remote -v | head -1 | awk '{print $2}' | rev | cut -d '/' -f 1 | rev | cut -d '.' -f 1)"
     REPO="${repo_owner}/${repo_name}"
 fi
-REPO_OPT="-R ${REPO}"
-RUN_OPT="${REPO_OPT}"
 
 # Check dependencies are available
 if ! type -p fzf >/dev/null; then
@@ -82,7 +89,7 @@ export REPO
 export -f get_last_arg
 QUERY="(${TITLES}), (map (select(.conclusion ==\"\").conclusion=\"-\") | ${JQ_FILTER} (.[] | ${FIELDS})) | @tsv"
 LIST_OPT+=(--json ${JSON_FIELDS})
-export FZF_DEFAULT_COMMAND="gh run ${REPO_OPT} list ${LIST_OPT[@]} --jq '${QUERY}' | column -ts $'\t'"
+export FZF_DEFAULT_COMMAND="gh run -R ${REPO} list ${LIST_OPT[@]} --jq '${QUERY}' | column -ts $'\t'"
 fzf \
     --bind "ctrl-h:toggle-preview" --preview "echo '${FZF_RUN_HELP}'" --preview-window hidden \
     --bind "ctrl-r:reload#${FZF_DEFAULT_COMMAND}#" \
