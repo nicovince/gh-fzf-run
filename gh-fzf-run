@@ -1,21 +1,32 @@
 #!/usr/bin/env bash
 set -e
 
+FZF_RUN_HELP="ctrl-h: show this help or hide it.
+ctrl-r: Reload workflows
+ctrl-a: Cancel workflow
+ctrl-w: Watch workflow
+ctrl-v: View workflow
+ctrl-j: Reload with job List of workflow
+ctrl-l: When viewing job list, show logs of job.
+"
+
+
 function help()
 {
     cat <<EOF
 Select with fzf a workflow from GitHub Actions to view, watch, cancel.
 Usage:
-  gh fzf-run [action]
-
-Actions:
-  Any actions supported by 'gh run' which takes a workflow id as parameter
+  gh fzf-run
 
 Flags:
   -R, --repo OWNER/REPO\tSelect another repository.
   -b, --branch\tFilter runs by branch
   -w, --workflow\tFilter runs by workflow
   -h, --help\tShow help for command
+
+Actions:
+  From within fzf, multiple bindings are available:
+$(echo "${FZF_RUN_HELP}" | sed '/^$/d' | sed 's/^/    /')
 EOF
 }
 
@@ -28,7 +39,6 @@ while [ $# -gt 0 ]; do
             help
             exit 0
             ;;
-
         -b|--branch)
             LIST_OPT+=(--branch ${2@Q})
             shift
@@ -41,22 +51,9 @@ while [ $# -gt 0 ]; do
             REPO="$2"
             shift
             ;;
-        --)
-            ACTION_ARGS="${@:2:$#}"
-            break
-            ;;
-        *)
-            PARAMS="${PARAMS} ${1}"
-            ;;
     esac
     shift
 done
-eval set -- "${PARAMS}"
-if [ -z "$1" ]; then
-    ACTION="view"
-else
-    ACTION="$1"
-fi
 
 if [ -z "${REPO}" ]; then
     repo_owner="$(git remote -v | head -1 | awk '{print $2}' | rev | cut -d '/' -f 2 | rev )"
@@ -76,36 +73,25 @@ JSON_FIELDS="status,conclusion,displayTitle,workflowName,headBranch,event,create
 TITLES='["STATUS", "CONCLUSION", "WORKFLOW", "TITLE", "BRANCH", "EVENT", "TIMESTAMP", "ID"]'
 FIELDS="[.status, .conclusion, .workflowName, .displayTitle, .headBranch, .event, .createdAt, .databaseId]"
 
-case ${ACTION} in
-    cancel|watch)
-        JQ_FILTER=".[] | [select(.status | test(\"completed\") | not)] |"
-        ;;
-    delete|download|rerun)
-        JQ_FILTER=".[] | [select(.status | test(\"completed\"))] |"
-        ;;
-    view)
-        JQ_FILTER=""
-        ;;
-    *)
-        echo "Unknown action ${ACTION}"
-        exit 1
-esac
-
-function get_wf_id()
+function get_last_arg()
 {
     echo "$@" | rev | awk '{print $1}' | rev
 }
 
 export REPO
-export -f get_wf_id
-QUERY="(${TITLES}), (map (select(.conclusion ==\"\").conclusion=\"inprogress\") | ${JQ_FILTER} (.[] | ${FIELDS})) | @tsv"
+export -f get_last_arg
+QUERY="(${TITLES}), (map (select(.conclusion ==\"\").conclusion=\"-\") | ${JQ_FILTER} (.[] | ${FIELDS})) | @tsv"
 LIST_OPT+=(--json ${JSON_FIELDS})
 export FZF_DEFAULT_COMMAND="gh run ${REPO_OPT} list ${LIST_OPT[@]} --jq '${QUERY}' | column -ts $'\t'"
-#wf_sel=$(fzf --bind "ctrl-r:reload#${FZF_DEFAULT_COMMAND}#" -0 --header-lines=1 --multi | jq -r -R -s 'split("\n") | [ .[] | select(length > 0)]')
-fzf --bind "ctrl-r:reload#${FZF_DEFAULT_COMMAND}#" \
-    --bind "ctrl-a:execute(get_wf_id {} | xargs gh run -R ${REPO} cancel)" \
-    --bind 'ctrl-w:execute(get_wf_id {} | xargs gh run -R ${REPO} watch)' \
-    --bind "ctrl-v:execute(get_wf_id {} | xargs gh run -R ${REPO} view | less -R)" \
-    --bind "ctrl-j:execute(echo 'job view {}' >> cmds.txt)" \
-    --header "ctrl-r: reload; ctrl-a: abort workflow" \
-    -0 --header-lines=1 --print-query
+fzf \
+    --bind "ctrl-h:toggle-preview" --preview "echo '${FZF_RUN_HELP}'" --preview-window hidden \
+    --bind "ctrl-r:reload#${FZF_DEFAULT_COMMAND}#" \
+    --bind "ctrl-a:execute(get_last_arg {} | xargs gh run -R ${REPO} cancel)" \
+    --bind "ctrl-a:+reload#${FZF_DEFAULT_COMMAND}#" \
+    --bind 'ctrl-w:execute(get_last_arg {} | xargs gh run -R ${REPO} watch)' \
+    --bind "ctrl-v:execute(get_last_arg {} | xargs gh run -R ${REPO} view | less -R)" \
+    --bind "ctrl-j:reload#get_last_arg {} | xargs -I JOBID gh api -H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28' /repos/${REPO}/actions/runs/JOBID/jobs --jq '([\"JOB NAME\", \"JOB ID\"]), (.jobs.[] | [.name, .id]) | @tsv' | column -ts $'\t'#" \
+    --bind "ctrl-l:execute(get_last_arg {} | xargs -I JOBID gh run -R ${REPO} view --job JOBID --log | less -R)" \
+    -0 --header-lines=1 --print-query \
+    --preview-window=down,$(echo "${FZF_RUN_HELP}" | wc -l)
+    --color preview-bg:#222222
