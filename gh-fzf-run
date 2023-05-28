@@ -6,6 +6,7 @@ ctrl-r: Reload workflows
 ctrl-a: Cancel workflow
 ctrl-w: Watch workflow
 ctrl-v: View workflow
+ctrl-e: Re-run workflow
 ctrl-j: Reload with job List of workflow
 ctrl-l: When viewing job list, show logs of job.
 "
@@ -97,6 +98,7 @@ fzf \
     --bind "ctrl-a:+reload#${FZF_DEFAULT_COMMAND}#" \
     --bind 'ctrl-w:execute(get_last_arg {} | xargs gh run -R ${REPO} watch)' \
     --bind "ctrl-v:execute(get_last_arg {} | xargs gh run -R ${REPO} view | less -R)" \
+    --bind "ctrl-e:execute-silent(get_last_arg {} | xargs gh run -R ${REPO} rerun)+reload#${FZF_DEFAULT_COMMAND}#" \
     --bind "ctrl-j:reload#get_last_arg {} | xargs -I JOBID gh api -H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28' /repos/${REPO}/actions/runs/JOBID/jobs --jq '([\"JOB NAME\", \"JOB ID\"]), (.jobs.[] | [.name, .id]) | @tsv' | column -ts $'\t'#" \
     --bind "ctrl-l:execute(get_last_arg {} | xargs -I JOBID gh run -R ${REPO} view --job JOBID --log | less -R)" \
     -0 --header-lines=1 --print-query \
