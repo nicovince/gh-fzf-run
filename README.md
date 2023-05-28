@@ -1,5 +1,6 @@
 # gh fzf-run GitHub CLI extension
 [GitHub CLI](https://cli.github.com/) extension to manage (view, cancel, watch, ...) workflows using fuzzy finding.
+It can be used as a interactive front-end to `gh run`.
 
 ## Installation
 ```
@@ -11,8 +12,4 @@ This extension depends on [fzf](https://github.com/junegunn/fzf#readme)
 ```
 gh fzf-run
 ```
-Commands available:
-- `ctrl-a`: Abort workflow
-- `ctrl-w`: watch workflow
-- `ctrl-v`: View workflow
-- `ctrl-j`: Show jobs of workflow
+Type `ctrl-h` to see available commands or use `--help` flag to display option flags and commands.
