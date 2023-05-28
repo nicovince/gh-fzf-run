@@ -9,7 +9,8 @@ ctrl-v: View workflow
 ctrl-e: Re-run workflow
 ctrl-o: Open workflow run in browser
 ctrl-j: Reload with job List of workflow
-ctrl-l: When viewing job list, show logs of job.
+ctrl-l: When viewing job list, show logs of job
+ctrl-i: When viewing job list, open job in browser
 "
 
 HDR_ACCEPT='Accept: application/vnd.github+json'
@@ -96,13 +97,22 @@ function open_wf_run()
     repo="$1"
     run_id="$(get_last_arg $2)"
     url="$(gh api -H "${HDR_ACCEPT}" -H "${HDR_API_VERSION}" /repos/${repo}/actions/runs/${run_id} --jq '.html_url')"
-    echo "$url" >> open_url.txt
+    xdg-open "${url}"
+}
+
+function open_wf_job()
+{
+    repo="$1"
+    run_id="$(echo $2 | rev | awk '{print $2}' | rev)"
+    job_id="$(echo $2 | rev | awk '{print $1}' | rev)"
+    url="$(gh api -H "${HDR_ACCEPT}" -H "${HDR_API_VERSION}" /repos/${repo}/actions/runs/${run_id}/jobs --jq ".jobs | map(select(.id==${job_id})) | .[].html_url")"
     xdg-open "${url}"
 }
 
 export REPO
 export -f get_last_arg
 export -f open_wf_run
+export -f open_wf_job
 QUERY="(${TITLES}), (map (select(.conclusion ==\"\").conclusion=\"-\") | ${JQ_FILTER} (.[] | ${FIELDS})) | @tsv"
 LIST_OPT+=(--json ${JSON_FIELDS})
 export FZF_DEFAULT_COMMAND="gh run -R ${REPO} list ${LIST_OPT[@]} --jq '${QUERY}' | column -ts $'\t'"
@@ -115,8 +125,9 @@ fzf \
     --bind "ctrl-v:execute(get_last_arg {} | xargs gh run -R ${REPO} view | less -R)" \
     --bind "ctrl-e:execute-silent(get_last_arg {} | xargs gh run -R ${REPO} rerun)+reload#${FZF_DEFAULT_COMMAND}#" \
     --bind "ctrl-o:execute-silent#open_wf_run ${REPO} {}#" \
-    --bind "ctrl-j:reload#get_last_arg {} | xargs -I JOBID gh api -H '${HDR_ACCEPT}' -H '${HDR_API_VERSION}' /repos/${REPO}/actions/runs/JOBID/jobs --jq '([\"JOB NAME\", \"JOB ID\"]), (.jobs.[] | [.name, .id]) | @tsv' | column -ts $'\t'#" \
+    --bind "ctrl-j:reload#get_last_arg {} | xargs -I JOBID gh api -H '${HDR_ACCEPT}' -H '${HDR_API_VERSION}' /repos/${REPO}/actions/runs/JOBID/jobs --jq '([\"JOB NAME\", \"RUN_ID\", \"JOB ID\"]), (.jobs.[] | [.name, .run_id, .id]) | @tsv' | column -ts $'\t'#" \
     --bind "ctrl-l:execute(get_last_arg {} | xargs -I JOBID gh run -R ${REPO} view --job JOBID --log | less -R)" \
+    --bind "ctrl-i:execute-silent#open_wf_job ${REPO} {}#" \
     -0 --header-lines=1 --print-query \
     --preview-window=down,$(echo "${FZF_RUN_HELP}" | wc -l) \
     --color preview-bg:#222222
