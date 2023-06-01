@@ -10,8 +10,9 @@ ctrl-e: Re-run workflow
 ctrl-o: Open workflow run in browser
 ctrl-j: Reload with job List of workflow
 ctrl-l: When viewing job list, show logs of job
-ctrl-i: When viewing job list, open job in browser
-"
+ctrl-i: When viewing job list, open job in browser"
+# Some version of wc (on mac at least) returns result with leading whitespaces, remove them.
+FZF_PREVWIN_HEIGHT=$(echo "${FZF_RUN_HELP}" | wc -l | grep -o "[0-9]\+")
 
 HDR_ACCEPT='Accept: application/vnd.github+json'
 HDR_API_VERSION='X-GitHub-Api-Version: 2022-11-28'
@@ -116,7 +117,7 @@ export -f open_wf_job
 QUERY="(${TITLES}), (map (select(.conclusion ==\"\").conclusion=\"-\") | ${JQ_FILTER} (.[] | ${FIELDS})) | @tsv"
 LIST_OPT+=(--json ${JSON_FIELDS})
 export FZF_DEFAULT_COMMAND="gh run -R ${REPO} list ${LIST_OPT[@]} --jq '${QUERY}' | column -ts $'\t'"
-fzf \
+SHELL="$BASH" fzf \
     --bind "ctrl-h:toggle-preview" --preview "echo '${FZF_RUN_HELP}'" --preview-window hidden \
     --bind "ctrl-r:reload#${FZF_DEFAULT_COMMAND}#" \
     --bind "ctrl-a:execute(get_last_arg {} | xargs gh run -R ${REPO} cancel)" \
@@ -129,5 +130,5 @@ fzf \
     --bind "ctrl-l:execute(get_last_arg {} | xargs -I JOBID gh run -R ${REPO} view --job JOBID --log | less -R)" \
     --bind "ctrl-i:execute-silent#open_wf_job ${REPO} {}#" \
     -0 --header-lines=1 --print-query \
-    --preview-window=down,$(echo "${FZF_RUN_HELP}" | wc -l) \
+    --preview-window=down,"${FZF_PREVWIN_HEIGHT}" \
     --color preview-bg:#222222
