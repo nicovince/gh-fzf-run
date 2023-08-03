@@ -118,6 +118,7 @@ QUERY="(${TITLES}), (map (select(.conclusion ==\"\").conclusion=\"-\") | ${JQ_FI
 LIST_OPT+=(--json ${JSON_FIELDS})
 export FZF_DEFAULT_COMMAND="gh run -R ${REPO} list ${LIST_OPT[@]} --jq '${QUERY}' | column -ts $'\t'"
 SHELL="$BASH" fzf \
+    --no-mouse \
     --bind "ctrl-h:toggle-preview" --preview "echo '${FZF_RUN_HELP}'" --preview-window hidden \
     --bind "ctrl-r:reload#${FZF_DEFAULT_COMMAND}#" \
     --bind "ctrl-a:execute(get_last_arg {} | xargs gh run -R ${REPO} cancel)" \
